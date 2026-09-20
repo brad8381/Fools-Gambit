@@ -77,11 +77,13 @@ public sealed class FoolsGambit : CustomRelicModel
             await ChoosePoolAndTransform(choiceContext, combatState);
     }
 
-    public override Task AfterPlayerTurnStart(PlayerChoiceContext choiceContext, Player player)
+    public override Task AfterAutoPrePlayPhaseEntered(PlayerChoiceContext choiceContext, Player player)
     {
         if (player != Owner)
             return Task.CompletedTask;
 
+        // AutoPrePlay begins only after turn setup and the normal hand draw are complete,
+        // so the two rolls always target cards that are actually in the player's hand.
         RollTurnCosts();
         return Task.CompletedTask;
     }
