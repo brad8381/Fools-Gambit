@@ -1,5 +1,7 @@
 using BaseLib.Abstracts;
+using BaseLib.Utils;
 using MegaCrit.Sts2.Core.Entities.Cards;
+using MegaCrit.Sts2.Core.Models.CardPools;
 
 namespace FoolsGambitCode.Cards;
 
@@ -16,6 +18,7 @@ public interface IGambitChoice
     GambitPoolMode Mode { get; }
 }
 
+[Pool(typeof(ColorlessCardPool))]
 public abstract class GambitChoiceCard : CustomCardModel, IGambitChoice
 {
     protected GambitChoiceCard(GambitPoolMode mode)
