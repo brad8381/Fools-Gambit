@@ -137,7 +137,7 @@ public sealed class FoolsGambit : CustomRelicModel
             combatState.CreateCard(ModelDb.Card<AllPoolsChoice>(), Owner)
         };
 
-        var prompt = new LocString("relics", "FOOLSGAMBIT-FOOLS_GAMBIT.poolPrompt");
+        var prompt = new LocString("relics", $"{Id.Entry}.poolPrompt");
         var selected = (await CardSelectCmd.FromSimpleGrid(
                 choiceContext,
                 candidates,
