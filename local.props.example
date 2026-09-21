@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <Sts2Path>C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2</Sts2Path>
+    <GodotPath>C:/megadot/MegaDot_v4.5.1-stable_mono_win64_console.exe</GodotPath>
+  </PropertyGroup>
+</Project>
