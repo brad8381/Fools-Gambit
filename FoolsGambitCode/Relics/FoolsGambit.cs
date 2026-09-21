@@ -27,7 +27,6 @@ public sealed class FoolsGambit : CustomRelicModel
     private const int RandomizedCardsPerTurn = 2;
     private const int RecoveryCombats = 5;
 
-
     public override RelicRarity Rarity => RelicRarity.Starter;
     public override string PackedIconPath => $"{MainFile.ResPath}/images/relics/fools_gambit.svg";
     protected override string PackedIconOutlinePath => $"{MainFile.ResPath}/images/relics/fools_gambit_outline.svg";
@@ -36,7 +35,7 @@ public sealed class FoolsGambit : CustomRelicModel
     public override List<(string, string)>? Localization =>
         new RelicLoc(
             "Fool's Gambit",
-            "Set your Max HP to 1. Over your first 5 combat victories, regrow 50% of your original Max HP. Start each combat with 10 Plating. Your starting deck becomes random Rare cards. At the start of each turn, 2 random cards in your hand cost 0-2 this turn.",
+            "Set your Max HP to 1. Regrow 10% of your original Max HP after each of your first 5 combat victories. Start each combat with 10 Plating. Before your first hand, choose a card pool and transform your deck into random Rare cards. Each turn, 2 random cards in your hand cost 0-2 this turn.",
             "The joke is statistically on someone.",
             ("poolPrompt", "Choose what gets dealt.")
         );
@@ -403,5 +402,4 @@ public sealed class FoolsGambit : CustomRelicModel
 
         Flash();
     }
-
 }
