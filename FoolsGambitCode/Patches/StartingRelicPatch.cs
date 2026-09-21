@@ -17,7 +17,7 @@ internal static class StartingRelicPatch
     [HarmonyPrefix]
     private static bool ReplaceStartingRelics(Player __instance)
     {
-        var gambit = ModelDb.Relic<FoolsGambit>().ToMutable();
+        var gambit = (FoolsGambit)ModelDb.Relic<FoolsGambit>().ToMutable();
         gambit.FloorAddedToDeck = 1;
 
         __instance.AddRelicInternal(gambit, index: -1, silent: false);
