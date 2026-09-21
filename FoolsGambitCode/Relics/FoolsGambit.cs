@@ -344,19 +344,20 @@ public sealed class FoolsGambit : CustomRelicModel
         if (eligible.Count == 0)
             return;
 
-        // STS2 has a dedicated seeded stream for combat cost rolls. Using it
-        // makes the result deterministic across save/load and avoids consuming
-        // the deck-transformation RNG stream.
-        var rng = Owner.RunState.Rng.CombatEnergyCosts;
+        // Keep "which cards?" and "what costs?" on STS2's dedicated seeded
+        // combat streams. This keeps save/load deterministic without consuming
+        // the persistent deck-transformation RNG stream.
+        var selectionRng = Owner.RunState.Rng.CombatCardSelection;
+        var costRng = Owner.RunState.Rng.CombatEnergyCosts;
         var count = Math.Min(RandomizedCardsPerTurn, eligible.Count);
 
         for (var i = 0; i < count; i++)
         {
-            var index = rng.NextInt(eligible.Count);
+            var index = selectionRng.NextInt(eligible.Count);
             var card = eligible[index];
             eligible.RemoveAt(index);
 
-            var rolledCost = rng.NextInt(0, 3);
+            var rolledCost = costRng.NextInt(0, 3);
             card.EnergyCost.SetThisTurnOrUntilPlayed(rolledCost, reduceOnly: false);
 
             // Reuse the game's Snecko-style feedback so the player can clearly
