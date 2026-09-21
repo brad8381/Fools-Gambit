@@ -29,7 +29,7 @@ The initial surviving 1 HP remains the base, so an 80-Max-HP character progresse
 
 **1 → 9 → 17 → 25 → 33 → 41**
 
-When Max HP grows, current HP grows by the same amount. Existing damage is preserved; this is not a full heal.
+When Max HP grows, current HP grows by the same amount. Existing damage is preserved; this is not a full heal. Recovery is applied as an additive delta, so Max HP gained from unrelated relics/events does not consume or replace the Gambit's remaining regrowth.
 
 ## Combat defence
 
