@@ -13,7 +13,7 @@ Before the first opening hand, choose a Rare-card source:
 - **Random Character** — Rare cards from one randomly selected playable character other than your current character.
 - **All Card Pools** — unlocked Rare cards from every available card pool, including compatible modded pools.
 
-Your deck is then transformed card-for-card into random Rares from that source. Duplicates are deliberately allowed.
+Every transformable card in your deck is then transformed card-for-card into a random Rare from that source. Duplicates are deliberately allowed. Engine-protected Eternal/untransformable cards are left alone.
 
 Additional effects:
 
