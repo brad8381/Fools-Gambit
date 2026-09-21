@@ -1,0 +1,8 @@
+.godot/
+bin/
+obj/
+publish/
+.vs/
+.idea/
+*.user
+Directory.Build.props
