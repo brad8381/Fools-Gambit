@@ -167,15 +167,38 @@ public sealed class FoolsGambit : CustomRelicModel
             .OfType<IGambitChoice>()
             .FirstOrDefault();
 
-        if (selected == null)
+        var selectedMode = selected?.Mode;
+
+        // These are UI-only token cards. Mark them removed once the choice has
+        // been captured so they do not remain live in the combat card scope.
+        foreach (var candidate in candidates)
+            candidate.RemoveFromState();
+
+        if (selectedMode == null)
             return;
 
-        SelectedPoolMode = (int)selected.Mode;
+        SelectedPoolMode = (int)selectedMode.Value;
 
-        var rarePool = GetRarePool(selected.Mode);
+        var rarePool = GetRarePool(selectedMode.Value);
         if (rarePool.Count == 0)
         {
-            MainFile.Logger.Error($"Fool's Gambit found no Rare cards for mode {selected.Mode}.");
+            // A custom character can legally expose no Rare cards. Falling
+            // back to All Pools keeps the run playable instead of reprompting
+            // forever at the next combat.
+            MainFile.Logger.Warn(
+                $"Fool's Gambit found no Rare cards for mode {selectedMode.Value}; " +
+                "falling back to All Card Pools.");
+
+            SelectedPoolMode = (int)GambitPoolMode.AllPools;
+            rarePool = GetRarePool(GambitPoolMode.AllPools);
+        }
+
+        if (rarePool.Count == 0)
+        {
+            MainFile.Logger.Error(
+                "Fool's Gambit found no Rare cards in any available pool; " +
+                "leaving the deck unchanged.");
+            DeckTransformed = true;
             return;
         }
 
