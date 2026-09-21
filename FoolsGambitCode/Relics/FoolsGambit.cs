@@ -13,6 +13,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.CardPools;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Models.RelicPools;
+using MegaCrit.Sts2.Core.Nodes.Cards;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
@@ -25,7 +26,6 @@ public sealed class FoolsGambit : CustomRelicModel
     private const int RandomizedCardsPerTurn = 2;
     private const int RecoveryCombats = 5;
 
-    private readonly Dictionary<CardModel, decimal> _turnCosts = new();
 
     public override RelicRarity Rarity => RelicRarity.Starter;
     public override string PackedIconPath => $"{MainFile.ResPath}/images/relics/fools_gambit.svg";
@@ -41,19 +41,36 @@ public sealed class FoolsGambit : CustomRelicModel
         );
 
     [SavedProperty]
-    public decimal OriginalMaxHp { get; private set; }
+    public int OriginalMaxHp { get; set; }
 
     [SavedProperty]
-    public int RecoveryVictories { get; private set; }
+    public int RecoveryVictories { get; set; }
 
     [SavedProperty]
-    public bool DeckTransformed { get; private set; }
+    public bool DeckTransformed { get; set; }
 
     [SavedProperty]
-    public int SelectedPoolMode { get; private set; } = -1;
+    public int SelectedPoolMode { get; set; } = -1;
+
+    /// <summary>
+    /// Starting relics are inserted before the player is attached to a live run, so
+    /// their normal AfterObtained hook is not used. The starting-relic patch calls
+    /// this directly while the player's original HP is still available.
+    /// </summary>
+    public void InitializeForNewRun()
+    {
+        if (OriginalMaxHp > 0)
+            return;
+
+        OriginalMaxHp = Owner.Creature.MaxHp;
+        Owner.Creature.SetMaxHpInternal(1m);
+        Owner.Creature.SetCurrentHpInternal(1m);
+    }
 
     public override async Task AfterObtained()
     {
+        // Defensive fallback for console/debug acquisition. Fool's Gambit is normally
+        // a starter and reaches InitializeForNewRun() instead.
         if (OriginalMaxHp <= 0)
             OriginalMaxHp = Owner.Creature.MaxHp;
 
@@ -91,44 +108,37 @@ public sealed class FoolsGambit : CustomRelicModel
         return Task.CompletedTask;
     }
 
-    public override bool TryModifyEnergyCostInCombat(
-        CardModel card,
-        decimal originalCost,
-        out decimal modifiedCost)
-    {
-        if (_turnCosts.TryGetValue(card, out var rolled))
-        {
-            modifiedCost = rolled;
-            return true;
-        }
-
-        modifiedCost = originalCost;
-        return false;
-    }
-
     public override async Task AfterCombatVictory(CombatRoom room)
     {
-        _turnCosts.Clear();
-
         if (RecoveryVictories >= RecoveryCombats || OriginalMaxHp <= 0)
             return;
 
         RecoveryVictories++;
 
+        // The surviving 1 HP remains the base, then 10% of the original Max HP
+        // grows back per victory. Example: 80 -> 1, 9, 17, 25, 33, 41.
         var desiredMaxHp =
-            1m + decimal.Ceiling(OriginalMaxHp * 0.10m * RecoveryVictories);
+            1 + (int)decimal.Ceiling(OriginalMaxHp * 0.10m * RecoveryVictories);
 
         if (Owner.Creature.MaxHp < desiredMaxHp)
+        {
+            var hpGained = desiredMaxHp - Owner.Creature.MaxHp;
+            var oldCurrentHp = Owner.Creature.CurrentHp;
+
             await CreatureCmd.SetMaxHp(Owner.Creature, desiredMaxHp);
+
+            // "Regrow" the gained capacity as real HP too, while preserving any
+            // damage already taken. This is not a full heal.
+            await CreatureCmd.SetCurrentHp(
+                Owner.Creature,
+                Math.Min(desiredMaxHp, oldCurrentHp + hpGained));
+        }
 
         Flash();
     }
 
-    public override Task AfterCombatEnd(CombatRoom room)
-    {
-        _turnCosts.Clear();
-        return Task.CompletedTask;
-    }
+    public override Task AfterCombatEnd(CombatRoom room) =>
+        Task.CompletedTask;
 
     private async Task ChoosePoolAndTransform(
         PlayerChoiceContext choiceContext,
@@ -271,27 +281,39 @@ public sealed class FoolsGambit : CustomRelicModel
 
     private void RollTurnCosts()
     {
-        _turnCosts.Clear();
+        var eligible = PileType.Hand.GetPile(Owner).Cards
+            .Where(card =>
+                !card.EnergyCost.CostsX &&
+                card.EnergyCost.Canonical >= 0)
+            .ToList();
 
-        var hand = PileType.Hand.GetPile(Owner).Cards.ToList();
-        if (hand.Count == 0)
+        if (eligible.Count == 0)
             return;
 
-        var rng = Owner.PlayerRng.Transformations;
-        var count = Math.Min(RandomizedCardsPerTurn, hand.Count);
+        // STS2 has a dedicated seeded stream for combat cost rolls. Using it
+        // makes the result deterministic across save/load and avoids consuming
+        // the deck-transformation RNG stream.
+        var rng = Owner.RunState.Rng.CombatEnergyCosts;
+        var count = Math.Min(RandomizedCardsPerTurn, eligible.Count);
 
         for (var i = 0; i < count; i++)
         {
-            var index = rng.NextInt(hand.Count);
-            var card = hand[index];
-            hand.RemoveAt(index);
+            var index = rng.NextInt(eligible.Count);
+            var card = eligible[index];
+            eligible.RemoveAt(index);
 
             var rolledCost = rng.NextInt(0, 3);
-            _turnCosts[card] = rolledCost;
+            card.EnergyCost.SetThisTurnOrUntilPlayed(rolledCost, reduceOnly: false);
+
+            // Reuse the game's Snecko-style feedback so the player can clearly
+            // see which two cards were hit by the Gambit.
+            NCard.FindOnTable(card, null)?.PlayRandomizeCostAnim();
+
+            MainFile.Logger.Debug(
+                $"Fool's Gambit turn cost: card={card.Id}, cost={rolledCost}");
         }
 
-        MainFile.Logger.Debug(
-            $"Fool's Gambit rolled {_turnCosts.Count} card cost(s): " +
-            string.Join(", ", _turnCosts.Select(pair => $"{pair.Key.Id}={pair.Value}")));
+        Flash();
     }
+
 }
