@@ -41,6 +41,8 @@ For a character starting at 80 Max HP, verify victory progression:
 
 Take damage before a victory and verify the Max-HP gain also increases current HP by only the gained capacity rather than performing a full heal.
 
+Gain Max HP from another source before a recovery victory and verify Fool's Gambit still adds its full scheduled recovery delta on top of that unrelated Max HP.
+
 Confirm there is no additional recovery after victory 5.
 
 ## Save/load
