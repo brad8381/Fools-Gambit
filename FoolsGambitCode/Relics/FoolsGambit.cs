@@ -201,6 +201,10 @@ public sealed class FoolsGambit : CustomRelicModel
         return cards
             .Where(card => card.Rarity == CardRarity.Rare)
             .DistinctBy(card => card.Id)
+            // Custom content registration order should not become gameplay RNG.
+            // Sort by stable model ID so multiplayer peers roll against the
+            // exact same list even when several mods contribute card pools.
+            .OrderBy(card => card.Id.Entry, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -222,6 +226,7 @@ public sealed class FoolsGambit : CustomRelicModel
                 Rares = GetUnlockedRareCards(character.CardPool).ToList()
             })
             .Where(x => x.Rares.Count > 0)
+            .OrderBy(x => x.Character.Id.Entry, StringComparer.Ordinal)
             .ToList();
 
         if (options.Count == 0)
