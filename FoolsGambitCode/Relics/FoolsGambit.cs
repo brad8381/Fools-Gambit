@@ -14,6 +14,7 @@ using MegaCrit.Sts2.Core.Models.CardPools;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Models.RelicPools;
 using MegaCrit.Sts2.Core.Nodes.Cards;
+using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
@@ -235,48 +236,101 @@ public sealed class FoolsGambit : CustomRelicModel
         IReadOnlyList<CardModel> rarePool,
         ICombatState combatState)
     {
-        var oldDeck = PileType.Deck.GetPile(Owner).Cards.ToList();
-        if (oldDeck.Count == 0)
+        var deck = PileType.Deck.GetPile(Owner);
+        var originals = deck.Cards.ToList();
+        if (originals.Count == 0)
             return;
 
-        var replacements = new List<(CardModel Old, CardModel New)>(oldDeck.Count);
+        // Respect STS2's untransformable-card contract rather than forcibly
+        // ripping engine-protected cards out of the deck. Normal starting cards,
+        // including Plaguebringer's, are expected to be transformable.
+        var transformable = originals
+            .Where(card => card.IsTransformable)
+            .ToList();
 
-        foreach (var oldCard in oldDeck)
+        var skipped = originals.Count - transformable.Count;
+        if (skipped > 0)
         {
-            var canonicalRare = Owner.PlayerRng.Transformations.NextItem(rarePool);
-            var newCard = Owner.RunState.CreateCard(canonicalRare, Owner);
-            newCard.FloorAddedToDeck = oldCard.FloorAddedToDeck ?? 1;
-            replacements.Add((oldCard, newCard));
+            MainFile.Logger.Warn(
+                $"Fool's Gambit skipped {skipped} untransformable deck card(s).");
         }
 
-        await CardPileCmd.RemoveFromDeck(oldDeck, showPreview: false);
-        await CardPileCmd.Add(
-            replacements.Select(pair => pair.New),
-            PileType.Deck,
-            CardPilePosition.Bottom,
-            clonedBy: this,
-            skipVisuals: true);
+        var planned = new List<(CardModel Original, CardTransformation Transform)>(
+            transformable.Count);
 
-        var drawPile = PileType.Draw.GetPile(Owner);
-        var oldCombatCards = drawPile.Cards.ToList();
-
-        await CardPileCmd.RemoveFromCombat(oldCombatCards, skipVisuals: true);
-
-        foreach (var oldCombatCard in oldCombatCards)
+        foreach (var original in transformable)
         {
-            var pair = replacements.FirstOrDefault(x =>
-                ReferenceEquals(x.Old, oldCombatCard.DeckVersion));
+            var canonicalRare = Owner.PlayerRng.Transformations.NextItem(rarePool);
+            var replacement = Owner.RunState.CreateCard(canonicalRare, Owner);
 
-            if (pair.New == null)
+            planned.Add((
+                original,
+                new CardTransformation(original, replacement)));
+        }
+
+        // Use the game's native transformation pipeline for the permanent deck.
+        // This preserves deck history, add-to-deck modifiers, state cleanup and
+        // compatibility hooks used by other mods.
+        var deckResults = (await CardCmd.Transform(
+                planned.Select(pair => pair.Transform),
+                rng: null,
+                style: CardPreviewStyle.None))
+            .ToList();
+
+        var replacementsByOriginal =
+            new Dictionary<CardModel, CardModel>(ReferenceEqualityComparer.Instance);
+
+        for (var i = 0; i < Math.Min(planned.Count, deckResults.Count); i++)
+        {
+            var result = deckResults[i];
+            if (!result.success || result.cardAdded == null)
                 continue;
 
-            var newCombatCard = combatState.CloneCard(pair.New);
-            newCombatCard.DeckVersion = pair.New;
-            drawPile.AddInternal(newCombatCard, -1, silent: true);
+            replacementsByOriginal[planned[i].Original] = result.cardAdded;
+        }
+
+        // Combat has already cloned the deck by the time BeforeHandDraw runs.
+        // Transform the matching draw-pile copies as well so turn 1 actually
+        // draws the new Rare deck instead of the old starter cards.
+        var drawPile = PileType.Draw.GetPile(Owner);
+        var combatTransforms = new List<CardTransformation>();
+
+        foreach (var combatCard in drawPile.Cards.ToList())
+        {
+            var oldDeckVersion = combatCard.DeckVersion;
+            if (oldDeckVersion == null ||
+                !replacementsByOriginal.TryGetValue(oldDeckVersion, out var newDeckVersion))
+            {
+                continue;
+            }
+
+            if (!combatCard.IsTransformable)
+            {
+                MainFile.Logger.Warn(
+                    $"Fool's Gambit could not transform combat copy {combatCard.Id}; " +
+                    "the card is marked untransformable.");
+                continue;
+            }
+
+            var combatReplacement = combatState.CloneCard(newDeckVersion);
+            combatReplacement.DeckVersion = newDeckVersion;
+
+            combatTransforms.Add(
+                new CardTransformation(combatCard, combatReplacement));
+        }
+
+        if (combatTransforms.Count > 0)
+        {
+            await CardCmd.Transform(
+                combatTransforms,
+                rng: null,
+                style: CardPreviewStyle.None);
         }
 
         MainFile.Logger.Info(
-            $"Fool's Gambit transformed {replacements.Count} starting cards using {(GambitPoolMode)SelectedPoolMode}.");
+            $"Fool's Gambit transformed {deckResults.Count(result => result.success)}/" +
+            $"{originals.Count} deck cards using {(GambitPoolMode)SelectedPoolMode}; " +
+            $"updated {combatTransforms.Count} combat copy/copies.");
     }
 
     private void RollTurnCosts()
