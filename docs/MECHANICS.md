@@ -43,4 +43,4 @@ Each chosen card independently rolls a cost of **0, 1, or 2** until the end of t
 
 X-cost and intrinsically non-energy-cost cards are excluded so the two rolls affect cards whose cost can actually change.
 
-The cost rolls use STS2's seeded **CombatEnergyCosts** RNG stream and the game's normal temporary card-cost system rather than a custom global cost override.
+The two card identities use STS2's seeded **CombatCardSelection** RNG stream, while their 0–2 values use **CombatEnergyCosts**. The game's normal temporary card-cost system is used rather than a custom global cost override.
