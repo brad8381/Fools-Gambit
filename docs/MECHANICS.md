@@ -19,6 +19,8 @@ Before the first opening hand is drawn, choose one source for the Rare-card tran
 
 Every transformable card currently in the deck is replaced card-for-card with a random Rare from the selected source. Duplicates are intentionally allowed. Engine-protected Eternal/untransformable deck cards are left alone rather than bypassing STS2's transformation safety rules.
 
+If a modded character exposes no Rare cards for the selected mode, Fool's Gambit falls back to **All Card Pools**. If no Rare cards exist anywhere, the transformation is marked complete and the deck is left unchanged rather than trapping the run in a repeated selection prompt.
+
 Rare candidates and random-character candidates are sorted by stable model ID before any roll, then the Rare rolls use the player's seeded **Transformations** RNG stream. This prevents mod registration order from becoming multiplayer gameplay RNG. Replacement itself goes through STS2's native `CardCmd.Transform` pipeline, so deck history, add-to-deck modifiers and compatibility hooks still run. Because the combat draw pile has already been cloned before `BeforeHandDraw`, matching combat copies are transformed to the same new deck cards before the opening hand is drawn.
 
 ## HP regrowth
