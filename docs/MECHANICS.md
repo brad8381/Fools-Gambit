@@ -17,9 +17,9 @@ Before the first opening hand is drawn, choose one source for the Rare-card tran
 | Random Character | One randomly selected playable character other than the current character |
 | All Card Pools | Unlocked Rare cards across every available pool, including compatible modded pools |
 
-Every card currently in the deck is replaced card-for-card with a random Rare from the selected source. Duplicates are intentionally allowed.
+Every transformable card currently in the deck is replaced card-for-card with a random Rare from the selected source. Duplicates are intentionally allowed. Engine-protected Eternal/untransformable deck cards are left alone rather than bypassing STS2's transformation safety rules.
 
-The transformation uses the player's seeded **Transformations** RNG stream.
+The Rare rolls use the player's seeded **Transformations** RNG stream. Replacement itself goes through STS2's native `CardCmd.Transform` pipeline, so deck history, add-to-deck modifiers and compatibility hooks still run. Because the combat draw pile has already been cloned before `BeforeHandDraw`, matching combat copies are transformed to the same new deck cards before the opening hand is drawn.
 
 ## HP regrowth
 
