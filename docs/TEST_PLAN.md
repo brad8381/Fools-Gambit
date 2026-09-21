@@ -18,9 +18,10 @@ For each vanilla playable character:
 5. Enter combat and confirm 10 Plating.
 6. Confirm the four pool choices appear before the opening hand.
 7. Select each pool mode on separate runs.
-8. Confirm deck size is unchanged and every transformed card is Rare.
-9. Confirm duplicate Rares are allowed.
-10. Confirm the opening draw comes from the transformed deck.
+8. Confirm deck size is unchanged and every transformable starting card is now Rare.
+9. Confirm Eternal/untransformable cards are preserved rather than crashing the transformation.
+10. Confirm duplicate Rares are allowed.
+11. Confirm the opening draw comes from the transformed deck and matches the permanent deck replacements.
 
 ## Cost randomization
 
