@@ -114,25 +114,30 @@ public sealed class FoolsGambit : CustomRelicModel
         if (RecoveryVictories >= RecoveryCombats || OriginalMaxHp <= 0)
             return;
 
+        // Compute recovery as a delta, not an absolute Max-HP target. This
+        // matters if another relic/event has already increased Max HP: those
+        // gains should not consume Fool's Gambit's promised regrowth.
+        var recoveredBefore = (int)decimal.Ceiling(
+            OriginalMaxHp * 0.10m * RecoveryVictories);
+
         RecoveryVictories++;
 
-        // The surviving 1 HP remains the base, then 10% of the original Max HP
-        // grows back per victory. Example: 80 -> 1, 9, 17, 25, 33, 41.
-        var desiredMaxHp =
-            1 + (int)decimal.Ceiling(OriginalMaxHp * 0.10m * RecoveryVictories);
+        var recoveredAfter = (int)decimal.Ceiling(
+            OriginalMaxHp * 0.10m * RecoveryVictories);
 
-        if (Owner.Creature.MaxHp < desiredMaxHp)
+        var hpGained = recoveredAfter - recoveredBefore;
+        if (hpGained > 0)
         {
-            var hpGained = desiredMaxHp - Owner.Creature.MaxHp;
-            var oldCurrentHp = Owner.Creature.CurrentHp;
+            var newMaxHp = Owner.Creature.MaxHp + hpGained;
+            var newCurrentHp = Math.Min(
+                newMaxHp,
+                Owner.Creature.CurrentHp + hpGained);
 
-            await CreatureCmd.SetMaxHp(Owner.Creature, desiredMaxHp);
+            await CreatureCmd.SetMaxHp(Owner.Creature, newMaxHp);
 
-            // "Regrow" the gained capacity as real HP too, while preserving any
-            // damage already taken. This is not a full heal.
-            await CreatureCmd.SetCurrentHp(
-                Owner.Creature,
-                Math.Min(desiredMaxHp, oldCurrentHp + hpGained));
+            // "Regrow" the gained capacity as real HP too, while preserving
+            // existing damage. This is deliberately not a full heal.
+            await CreatureCmd.SetCurrentHp(Owner.Creature, newCurrentHp);
         }
 
         Flash();
