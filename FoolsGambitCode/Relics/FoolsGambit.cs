@@ -259,7 +259,10 @@ public sealed class FoolsGambit : CustomRelicModel
         if (options.Count == 0)
             return GetUnlockedRareCards(Owner.Character.CardPool);
 
-        var chosen = Owner.PlayerRng.Transformations.NextItem(options);
+        var chosen = Owner.PlayerRng.Transformations.NextItem(options)
+            ?? throw new InvalidOperationException(
+                "Fool's Gambit could not choose from a non-empty character pool.");
+
         MainFile.Logger.Info($"Fool's Gambit random character pool: {chosen.Character.Id}");
         return chosen.Rares;
     }
@@ -292,7 +295,10 @@ public sealed class FoolsGambit : CustomRelicModel
 
         foreach (var original in transformable)
         {
-            var canonicalRare = Owner.PlayerRng.Transformations.NextItem(rarePool);
+            var canonicalRare = Owner.PlayerRng.Transformations.NextItem(rarePool)
+                ?? throw new InvalidOperationException(
+                    "Fool's Gambit could not choose from a non-empty Rare pool.");
+
             var replacement = Owner.RunState.CreateCard(canonicalRare, Owner);
 
             planned.Add((
